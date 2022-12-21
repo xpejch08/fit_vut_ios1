@@ -1,0 +1,205 @@
+#!/bin/sh
+
+export POSIXLY_CORRECT=yes
+LOG=""
+INFECTED=""
+COUNTER=0
+LINES=0
+
+help(){
+  echo "Použití: corona [-h] [FILTERS] [COMMAND] [LOG [LOG2 [...]]
+        Filtry:
+                -a DATETIME — after: jsou uvažovány pouze záznamy PO tomto datu (včetně tohoto data).
+                DATETIME je formátu YYYY-MM-DD.
+                -b DATETIME — before: jsou uvažovány pouze záznamy PŘED tímto datem (včetně tohoto data).
+                -g GENDER — jsou uvažovány pouze záznamy nakažených osob daného pohlaví. GENDER může být M (muži) nebo Z (ženy).
+                -s [WIDTH] u příkazů gender, age, daily, monthly, yearly, Tedy,
+                countries, districts a regions vypisuje data ne číselně, ale graficky v podobě histogramů.
+                Nepovinný parametr WIDTH nastavuje šířku histogramů, tedy délku nejdelšího řádku, na WIDTH.
+                WIDTH musí být kladné celé číslo. Pokud není parametr WIDTH uveden, řídí se šířky řádků požadavky uvedenými níže.
+        Příkazy:
+                infected — spočítá počet nakažených.
+                merge — sloučí několik souborů se záznamy do jednoho, zachovávající původní pořadí (hlavička bude ve výstupu jen jednou).
+                gender — vypíše počet nakažených pro jednotlivá pohlaví.
+                age — vypíše statistiku počtu nakažených osob dle věku (bližší popis je níže).
+                daily — vypíše statistiku nakažených osob pro jednotlivé dny.
+                monthly — vypíše statistiku nakažených osob pro jednotlivé měsíce.
+                yearly — vypíše statistiku nakažených osob pro jednotlivé roky.
+                countries — vypíše statistiku nakažených osob pro jednotlivé země nákazy (bez ČR, tj. kódu CZ).
+                districts — vypíše statistiku nakažených osob pro jednotlivé okresy.
+                regions — vypíše statistiku nakažených osob pro jednotlivé kraje."
+  }
+
+#lines(){
+#
+#}
+lines() {
+  LINES=0
+  LINES=$(echo "$1" | awk 'END {print NR}')
+}
+
+infected_command(){
+  INFECTED=$(echo "$LOG" | awk 'END {print NR}')
+  INFECTED=$((INFECTED - 1))
+  echo "$INFECTED"
+  }
+merge_command(){
+  echo "$LOG"
+}
+gender_command(){
+    MAN=$(echo "$LOG" | awk -F"," '$4 == "M" { print $0 }')
+    lines "$MAN"
+    echo "M: $LINES"
+    WOMEN=$(echo "$LOG" | awk -F"," '$4 == "Z" { print $0 }')
+    lines "$WOMEN"
+    echo "W: $LINES"
+    exit 0
+}
+
+age_command(){
+    FIRST_I=$(echo "$LOG" | awk -F"," '($3 >= 0) && ($3 <= 5) { print $0 }')
+    lines "$FIRST_I"
+    echo "0-5   : $LINES"
+
+    SECOND_I=$(echo "$LOG" | awk -F"," '($3 >= 6) && ($3 <= 15)  { print $0 }')
+    lines "$SECOND_I"
+    echo "6-15  : $LINES"
+
+    THIRD_I=$(echo "$LOG" | awk -F"," '($3 >= 16) && ($3 <= 25)  { print $0 }')
+    lines "$THIRD_I"
+    echo "16-25 : $LINES"
+
+    FOURTH_I=$(echo "$LOG" | awk -F"," '($3 >= 26) && ($3 <= 35)  { print $0 }')
+    lines "$FOURTH_I"
+    echo "26-35 : $LINES"
+
+    FIFTH_I=$(echo "$LOG" | awk -F"," '($3 >= 36) && ($3 <= 45)  { print $0 }')
+    lines "$FIFTH_I"
+    echo "36-45 : $LINES"
+
+    SIXTH_I=$(echo "$LOG" | awk -F"," '($3 >= 46) && ($3 <= 55)  { print $0 }')
+    lines "$SIXTH_I"
+    echo "46-55 : $LINES"
+
+    SEVENTH_I=$(echo "$LOG" | awk -F"," '($3 >= 56) && ($3 <= 65)  { print $0 }')
+    lines "$SEVENTH_I"
+    echo "56-65 : $LINES"
+
+    EIGHTH_I=$(echo "$LOG" | awk -F"," '($3 >= 66) && ($3 <= 75)  { print $0 }')
+    lines "$EIGHTH_I"
+    echo "66-75 : $LINES"
+
+    NINETH_I=$(echo "$LOG" | awk -F"," '($3 >= 76) && ($3 <= 85)  { print $0 }')
+    lines "$NINETH_I"
+    echo "76-85 : $LINES"
+
+    TENTH_I=$(echo "$LOG" | awk -F"," '($3 >= 86) && ($3 <= 95)  { print $0 }')
+    lines "$TENTH_I"
+    echo "86-95 : $LINES"
+
+    ELEVENTH_I=$(echo "$LOG" | awk -F"," '($3 >= 96) && ($3 <= 105)  { print $0 }')
+    lines "$ELEVENTH_I"
+    echo "96-105: $LINES"
+
+    ELEVENTH_I=$(echo "$LOG" | awk -F"," '$3 > 105  { print $0 }')
+    lines "$ELEVENTH_I"
+    echo ">105  : $LINES"
+
+    NONE_I=$(echo "$LOG" | awk -F"," '$3 == ""  { print $0 }')
+    lines "$NONE_I"
+    echo "NONE  : $LINES"
+    exit 0
+}
+for var in "$@"
+do
+    echo "$var"
+    case "$var" in
+        *.csv)
+          COUNTER=$((COUNTER+1))
+          if [ "$COUNTER" -gt 1 ]; then
+              sed -i '1d' ./"$var"
+          fi
+          LOG="$LOG$(cat "$var")"
+          ;;
+
+        *.csv.gz)
+          COUNTER=$((COUNTER+1))
+          if [ "$COUNTER" -gt 1 ]; then
+              sed -i '1d' ./"var"
+          fi
+          LOG="$LOG$(zcat "$var")"
+          ;;
+
+        *.csv.bz2)
+          COUNTER=$((COUNTER+1))
+          if [ "$COUNTER" -gt 1 ]; then
+              sed -i '1d' ./"$var"
+          fi
+          LOG="$LOG$(bzcat "$var")"
+          ;;
+
+      esac
+
+done
+
+while [ "$#" -gt 0 ]; do
+      case "$1" in
+      infected)
+        infected_command
+        shift
+        ;;
+      merge)
+        merge_command
+        shift
+        ;;
+      gender)
+        gender_command
+        shift
+        ;;
+      age)
+        age_command
+        shift
+        ;;
+      daily)
+        daily_command
+        shift
+        ;;
+      monthly)
+        monthly_command
+        shift
+        ;;
+      yearly)
+        yearly_command
+        shift
+        ;;
+      countries)
+        countries_command
+        shift
+        ;;
+      regions)
+        regions_command
+        shift
+        ;;
+      -h | -help)
+        help
+        exit 0
+        ;;
+      *.csv)
+        shift
+        ;;
+
+      *.csv.gz)
+        shift
+        ;;
+
+      *.csv.bz2)
+        shift
+        ;;
+      *)
+        echo "unknown command"
+        exit 1
+        ;;
+    esac
+done
+
+exit 0

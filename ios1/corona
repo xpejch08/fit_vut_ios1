@@ -1,0 +1,738 @@
+#!/bin/sh
+#!/bin/bash
+
+export POSIXLY_CORRECT=yes
+LOG=""
+INFECTED=""
+COUNTER=0
+LINES=0
+DATE_A="0000-00-00"
+DATE_B="9999-00-00"
+GENDER_F=""
+WIDTH="EMPTY"
+CMD_FLAG=0
+FILTER_COUNTER=0
+
+help(){
+  echo "Použití: corona [-h] [FILTERS] [COMMAND] [LOG [LOG2 [...]]
+        Filtry:
+                -a DATETIME — after: jsou uvažovány pouze záznamy PO tomto datu (včetně tohoto data).
+                DATETIME je formátu YYYY-MM-DD.
+                -b DATETIME — before: jsou uvažovány pouze záznamy PŘED tímto datem (včetně tohoto data).
+                -g GENDER — jsou uvažovány pouze záznamy nakažených osob daného pohlaví. GENDER může být M (muži) nebo Z (ženy).
+                -s [WIDTH] u příkazů gender, age, daily, monthly, yearly, Tedy,
+                countries, districts a regions vypisuje data ne číselně, ale graficky v podobě histogramů.
+                Nepovinný parametr WIDTH nastavuje šířku histogramů, tedy délku nejdelšího řádku, na WIDTH.
+                WIDTH musí být kladné celé číslo. Pokud není parametr WIDTH uveden, řídí se šířky řádků požadavky uvedenými níže.
+        Příkazy:
+                infected — spočítá počet nakažených.
+                merge — sloučí několik souborů se záznamy do jednoho, zachovávající původní pořadí (hlavička bude ve výstupu jen jednou).
+                gender — vypíše počet nakažených pro jednotlivá pohlaví.
+                age — vypíše statistiku počtu nakažených osob dle věku (bližší popis je níže).
+                daily — vypíše statistiku nakažených osob pro jednotlivé dny.
+                monthly — vypíše statistiku nakažených osob pro jednotlivé měsíce.
+                yearly — vypíše statistiku nakažených osob pro jednotlivé roky.
+                countries — vypíše statistiku nakažených osob pro jednotlivé země nákazy (bez ČR, tj. kódu CZ).
+                districts — vypíše statistiku nakažených osob pro jednotlivé okresy.
+                regions — vypíše statistiku nakažených osob pro jednotlivé kraje."
+  }
+
+#lines(){
+#
+#}
+lines() {
+  LINES=0
+  LINES=$(echo "$1" | awk 'END {print NR}')
+}
+
+infected_command(){
+  INFECTED=$(echo "$FILTERED" | awk 'END {print NR}')
+  INFECTED=$((INFECTED - 1))
+  echo "$INFECTED"
+  }
+merge_command(){
+  echo "id,datum,vek,pohlavi,kraj_nuts_kod,okres_lau_kod,nakaza_v_zahranici,nakaza_zeme_csu_kod,reportovano_khs"
+  echo "$FILTERED"
+}
+gender_command(){
+  if [ "$WIDTH" = "EMPTY" ]; then
+    echo "$FILTERED" | awk -F',' -v COUNTER_G=0 '$4 == "M" {COUNTER_G++} END {print "M: " COUNTER_G}'
+    echo "$FILTERED" | awk -F',' -v COUNTER_G=0 '$4 == "Z" {COUNTER_G++} END {print "Z: " COUNTER_G}'
+  elif [ "$WIDTH" = "NORMAL" ]; then
+
+    echo "$FILTERED" | sort -t, -k4,4 | awk -F',' -v COUNT=1 -v WIDTH_G=100000 '/,M,/ {COUNT++} END {printf("M:")}
+    END {for (i=0; i < int(COUNT/WIDTH_G); i++) printf("#")}
+    END{printf("\n")}'
+
+    echo "$FILTERED" | sort -t, -k4,4 | awk -F',' -v COUNT=1 -v WIDTH_G=100000 '/,Z,/ {COUNT++} END {printf("Z:")}
+    END {for (i=0; i < int(COUNT/WIDTH_G); i++) printf("#")}
+    END{printf("\n")}'
+  else
+    echo "$FILTERED" | sort -t, -k4,4 | awk -F',' -v COUNT=1 -v WIDTH_G="$WIDTH" '/,M,/ {COUNT++} END {printf("M:")}
+    END {for (i=0; i < int(COUNT/WIDTH_G); i++) printf("#")}
+    END{printf("\n")}'
+
+    echo "$FILTERED" | sort -t, -k4,4 | awk -F',' -v COUNT=1 -v WIDTH_G="$WIDTH" '/,Z,/ {COUNT++} END {printf("Z:")}
+    END {for (i=0; i < int(COUNT/WIDTH_G); i++) printf("#")}
+    END{printf("\n")}'
+  fi
+    exit 0
+}
+
+age_command(){
+  if [ "$WIDTH" = "EMPTY" ];
+   then
+    FIRST_I=$(echo "$FILTERED" | awk -F"," '($3 >= 0) && ($3 <= 5) { print $0 }')
+    lines "$FIRST_I"
+    echo "0-5   : $LINES"
+
+    SECOND_I=$(echo "$FILTERED" | awk -F"," '($3 >= 6) && ($3 <= 15)  { print $0 }')
+    lines "$SECOND_I"
+    echo "6-15  : $LINES"
+
+    THIRD_I=$(echo "$FILTERED" | awk -F"," '($3 >= 16) && ($3 <= 25)  { print $0 }')
+    lines "$THIRD_I"
+    echo "16-25 : $LINES"
+
+    FOURTH_I=$(echo "$FILTERED" | awk -F"," '($3 >= 26) && ($3 <= 35)  { print $0 }')
+    lines "$FOURTH_I"
+    echo "26-35 : $LINES"
+
+    FIFTH_I=$(echo "$FILTERED" | awk -F"," '($3 >= 36) && ($3 <= 45)  { print $0 }')
+    lines "$FIFTH_I"
+    echo "36-45 : $LINES"
+
+    SIXTH_I=$(echo "$FILTERED" | awk -F"," '($3 >= 46) && ($3 <= 55)  { print $0 }')
+    lines "$SIXTH_I"
+    echo "46-55 : $LINES"
+
+    SEVENTH_I=$(echo "$FILTERED" | awk -F"," '($3 >= 56) && ($3 <= 65)  { print $0 }')
+    lines "$SEVENTH_I"
+    echo "56-65 : $LINES"
+
+    EIGHTH_I=$(echo "$FILTERED" | awk -F"," '($3 >= 66) && ($3 <= 75)  { print $0 }')
+    lines "$EIGHTH_I"
+    echo "66-75 : $LINES"
+
+    NINETH_I=$(echo "$FILTERED" | awk -F"," '($3 >= 76) && ($3 <= 85)  { print $0 }')
+    lines "$NINETH_I"
+    echo "76-85 : $LINES"
+
+    TENTH_I=$(echo "$FILTERED" | awk -F"," '($3 >= 86) && ($3 <= 95)  { print $0 }')
+    lines "$TENTH_I"
+    echo "86-95 : $LINES"
+
+    ELEVENTH_I=$(echo "$FILTERED" | awk -F"," '($3 >= 96) && ($3 <= 105)  { print $0 }')
+    lines "$ELEVENTH_I"
+    echo "96-105: $LINES"
+
+    ELEVENTH_I=$(echo "$FILTERED" | awk -F"," '$3 > 105  { print $0 }')
+    lines "$ELEVENTH_I"
+    echo ">105  : $LINES"
+
+    NONE_I=$(echo "$FILTERED" | awk -F"," '$3 == ""  { print $0 }')
+    lines "$NONE_I"
+    echo "NONE  : $LINES"
+    exit 0
+
+  elif [ "$WIDTH" = "NORMAL" ];
+  then
+       FIRST_I=$(echo "$FILTERED" | awk -F"," '($3 >= 0) && ($3 <= 5) { print $0 }')
+        lines "$FIRST_I"
+        echo "$FILTERED" | sort -t, -k3,3 | awk -F',' -v COUNT="$LINES" -v WIDTH_G=10000 '/,M,/ {COUNT++} END {printf("0-5:")}
+        END {for (i=0; i < int(COUNT/WIDTH_G); i++) printf("#")}
+        END{printf("\n")}'
+
+        SECOND_I=$(echo "$FILTERED" | awk -F"," '($3 >= 6) && ($3 <= 15)  { print $0 }')
+        lines "$SECOND_I"
+        echo "$FILTERED" | sort -t, -k3,3 | awk -F',' -v COUNT="$LINES" -v WIDTH_G=10000 '/,M,/ {COUNT++} END {printf("6-15:")}
+        END {for (i=0; i < int(COUNT/WIDTH_G); i++) printf("#")}
+        END{printf("\n")}'
+
+        THIRD_I=$(echo "$FILTERED" | awk -F"," '($3 >= 16) && ($3 <= 25)  { print $0 }')
+        lines "$THIRD_I"
+        echo "$FILTERED" | sort -t, -k3,3 | awk -F',' -v COUNT="$LINES" -v WIDTH_G=10000 '/,M,/ {COUNT++} END {printf("16-25:")}
+        END {for (i=0; i < int(COUNT/WIDTH_G); i++) printf("#")}
+        END{printf("\n")}'
+
+
+        FOURTH_I=$(echo "$FILTERED" | awk -F"," '($3 >= 26) && ($3 <= 35)  { print $0 }')
+        lines "$FOURTH_I"
+        echo "$FILTERED" | sort -t, -k3,3 | awk -F',' -v COUNT="$LINES" -v WIDTH_G=10000 '/,M,/ {COUNT++} END {printf("26-35:")}
+        END {for (i=0; i < int(COUNT/WIDTH_G); i++) printf("#")}
+        END{printf("\n")}'
+
+
+        FIFTH_I=$(echo "$FILTERED" | awk -F"," '($3 >= 36) && ($3 <= 45)  { print $0 }')
+        lines "$FIFTH_I"
+        echo "$FILTERED" | sort -t, -k3,3 | awk -F',' -v COUNT="$LINES" -v WIDTH_G=10000 '/,M,/ {COUNT++} END {printf("36-45:")}
+        END {for (i=0; i < int(COUNT/WIDTH_G); i++) printf("#")}
+        END{printf("\n")}'
+
+
+        SIXTH_I=$(echo "$FILTERED" | awk -F"," '($3 >= 46) && ($3 <= 55)  { print $0 }')
+        lines "$SIXTH_I"
+        echo "$FILTERED" | sort -t, -k3,3 | awk -F',' -v COUNT="$LINES" -v WIDTH_G=10000 '/,M,/ {COUNT++} END {printf("46-55:")}
+        END {for (i=0; i < int(COUNT/WIDTH_G); i++) printf("#")}
+        END{printf("\n")}'
+
+
+        SEVENTH_I=$(echo "$FILTERED" | awk -F"," '($3 >= 56) && ($3 <= 65)  { print $0 }')
+        lines "$SEVENTH_I"
+        echo "$FILTERED" | sort -t, -k3,3 | awk -F',' -v COUNT="$LINES" -v WIDTH_G=10000 '/,M,/ {COUNT++} END {printf("56-65:")}
+        END {for (i=0; i < int(COUNT/WIDTH_G); i++) printf("#")}
+        END{printf("\n")}'
+
+
+        EIGHTH_I=$(echo "$FILTERED" | awk -F"," '($3 >= 66) && ($3 <= 75)  { print $0 }')
+        lines "$EIGHTH_I"
+        echo "$FILTERED" | sort -t, -k3,3 | awk -F',' -v COUNT="$LINES" -v WIDTH_G=10000 '/,M,/ {COUNT++} END {printf("66-75:")}
+        END {for (i=0; i < int(COUNT/WIDTH_G); i++) printf("#")}
+        END{printf("\n")}'
+
+        NINETH_I=$(echo "$FILTERED" | awk -F"," '($3 >= 76) && ($3 <= 85)  { print $0 }')
+        lines "$NINETH_I"
+        echo "$FILTERED" | sort -t, -k3,3 | awk -F',' -v COUNT="$LINES" -v WIDTH_G=10000 '/,M,/ {COUNT++} END {printf("76-85:")}
+        END {for (i=0; i < int(COUNT/WIDTH_G); i++) printf("#")}
+        END{printf("\n")}'
+
+        TENTH_I=$(echo "$FILTERED" | awk -F"," '($3 >= 86) && ($3 <= 95)  { print $0 }')
+        lines "$TENTH_I"
+        echo "$FILTERED" | sort -t, -k3,3 | awk -F',' -v COUNT="$LINES" -v WIDTH_G=10000 '/,M,/ {COUNT++} END {printf("86-95:")}
+        END {for (i=0; i < int(COUNT/WIDTH_G); i++) printf("#")}
+        END{printf("\n")}'
+
+        ELEVENTH_I=$(echo "$FILTERED" | awk -F"," '($3 >= 96) && ($3 <= 105)  { print $0 }')
+        lines "$ELEVENTH_I"
+        echo "$FILTERED" | sort -t, -k3,3 | awk -F',' -v COUNT="$LINES" -v WIDTH_G=10000 '/,M,/ {COUNT++} END {printf("96-105:")}
+        END {for (i=0; i < int(COUNT/WIDTH_G); i++) printf("#")}
+        END{printf("\n")}'
+
+        ELEVENTH_I=$(echo "$FILTERED" | awk -F"," '$3 > 105  { print $0 }')
+        lines "$ELEVENTH_I"
+        echo "$FILTERED" | sort -t, -k3,3 | awk -F',' -v COUNT="$LINES" -v WIDTH_G=10000 '/,M,/ {COUNT++} END {printf(">105:")}
+        END {for (i=0; i < int(COUNT/WIDTH_G); i++) printf("#")}
+        END{printf("\n")}'
+
+        NONE_I=$(echo "$FILTERED" | awk -F"," '$3 == ""  { print $0 }')
+        lines "$NONE_I"
+        echo "$LINES"
+  else
+        FIRST_I=$(echo "$FILTERED" | awk -F"," '($3 >= 0) && ($3 <= 5) { print $0 }')
+            lines "$FIRST_I"
+            echo "$FILTERED" | sort -t, -k3,3 | awk -F',' -v COUNT="$LINES" -v WIDTH_G="$WIDTH" '/,M,/ {COUNT++} END {printf("0-5:")}
+            END {for (i=0; i < int(COUNT/WIDTH_G); i++) printf("#")}
+            END{printf("\n")}'
+
+            SECOND_I=$(echo "$FILTERED" | awk -F"," '($3 >= 6) && ($3 <= 15)  { print $0 }')
+            lines "$SECOND_I"
+            echo "$FILTERED" | sort -t, -k3,3 | awk -F',' -v COUNT="$LINES" -v WIDTH_G=$WIDTH '/,M,/ {COUNT++} END {printf("6-15:")}
+            END {for (i=0; i < int(COUNT/WIDTH_G); i++) printf("#")}
+            END{printf("\n")}'
+
+            THIRD_I=$(echo "$FILTERED" | awk -F"," '($3 >= 16) && ($3 <= 25)  { print $0 }')
+            lines "$THIRD_I"
+            echo "$FILTERED" | sort -t, -k3,3 | awk -F',' -v COUNT="$LINES" -v WIDTH_G="$WIDTH" '/,M,/ {COUNT++} END {printf("16-25:")}
+            END {for (i=0; i < int(COUNT/WIDTH_G); i++) printf("#")}
+            END{printf("\n")}'
+
+
+            FOURTH_I=$(echo "$FILTERED" | awk -F"," '($3 >= 26) && ($3 <= 35)  { print $0 }')
+            lines "$FOURTH_I"
+            echo "$FILTERED" | sort -t, -k3,3 | awk -F',' -v COUNT="$LINES" -v WIDTH_G="$WIDTH" '/,M,/ {COUNT++} END {printf("26-35:")}
+            END {for (i=0; i < int(COUNT/WIDTH_G); i++) printf("#")}
+            END{printf("\n")}'
+
+
+            FIFTH_I=$(echo "$FILTERED" | awk -F"," '($3 >= 36) && ($3 <= 45)  { print $0 }')
+            lines "$FIFTH_I"
+            echo "$FILTERED" | sort -t, -k3,3 | awk -F',' -v COUNT="$LINES" -v WIDTH_G="$WIDTH" '/,M,/ {COUNT++} END {printf("36-45:")}
+            END {for (i=0; i < int(COUNT/WIDTH_G); i++) printf("#")}
+            END{printf("\n")}'
+
+
+            SIXTH_I=$(echo "$FILTERED" | awk -F"," '($3 >= 46) && ($3 <= 55)  { print $0 }')
+            lines "$SIXTH_I"
+            echo "$FILTERED" | sort -t, -k3,3 | awk -F',' -v COUNT="$LINES" -v WIDTH_G="$WIDTH" '/,M,/ {COUNT++} END {printf("46-55:")}
+            END {for (i=0; i < int(COUNT/WIDTH_G); i++) printf("#")}
+            END{printf("\n")}'
+
+
+            SEVENTH_I=$(echo "$FILTERED" | awk -F"," '($3 >= 56) && ($3 <= 65)  { print $0 }')
+            lines "$SEVENTH_I"
+            echo "$FILTERED" | sort -t, -k3,3 | awk -F',' -v COUNT="$LINES" -v WIDTH_G="$WIDTH" '/,M,/ {COUNT++} END {printf("56-65:")}
+            END {for (i=0; i < int(COUNT/WIDTH_G); i++) printf("#")}
+            END{printf("\n")}'
+
+
+            EIGHTH_I=$(echo "$FILTERED" | awk -F"," '($3 >= 66) && ($3 <= 75)  { print $0 }')
+            lines "$EIGHTH_I"
+            echo "$FILTERED" | sort -t, -k3,3 | awk -F',' -v COUNT="$LINES" -v WIDTH_G="$WIDTH" '/,M,/ {COUNT++} END {printf("66-75:")}
+            END {for (i=0; i < int(COUNT/WIDTH_G); i++) printf("#")}
+            END{printf("\n")}'
+
+            NINETH_I=$(echo "$FILTERED" | awk -F"," '($3 >= 76) && ($3 <= 85)  { print $0 }')
+            lines "$NINETH_I"
+            echo "$FILTERED" | sort -t, -k3,3 | awk -F',' -v COUNT="$LINES" -v WIDTH_G="$WIDTH" '/,M,/ {COUNT++} END {printf("76-85:")}
+            END {for (i=0; i < int(COUNT/WIDTH_G); i++) printf("#")}
+            END{printf("\n")}'
+
+            TENTH_I=$(echo "$FILTERED" | awk -F"," '($3 >= 86) && ($3 <= 95)  { print $0 }')
+            lines "$TENTH_I"
+            echo "$FILTERED" | sort -t, -k3,3 | awk -F',' -v COUNT="$LINES" -v WIDTH_G="$WIDTH" '/,M,/ {COUNT++} END {printf("86-95:")}
+            END {for (i=0; i < int(COUNT/WIDTH_G); i++) printf("#")}
+            END{printf("\n")}'
+
+            ELEVENTH_I=$(echo "$FILTERED" | awk -F"," '($3 >= 96) && ($3 <= 105)  { print $0 }')
+            lines "$ELEVENTH_I"
+            echo "$FILTERED" | sort -t, -k3,3 | awk -F',' -v COUNT="$LINES" -v WIDTH_G="$WIDTH" '/,M,/ {COUNT++} END {printf("96-105:")}
+            END {for (i=0; i < int(COUNT/WIDTH_G); i++) printf("#")}
+            END{printf("\n")}'
+
+            ELEVENTH_I=$(echo "$FILTERED" | awk -F"," '$3 > 105  { print $0 }')
+            lines "$ELEVENTH_I"
+            echo "$FILTERED" | sort -t, -k3,3 | awk -F',' -v COUNT="$LINES" -v WIDTH_G="$WIDTH" '/,M,/ {COUNT++} END {printf(">105:")}
+            END {for (i=0; i < int(COUNT/WIDTH_G); i++) printf("#")}
+            END{printf("\n")}'
+
+            NONE_I=$(echo "$FILTERED" | awk -F"," '$3 == ""  { print $0 }')
+            lines "$NONE_I"
+            echo "$LINES"
+  fi
+}
+daily_command(){
+  if [ "$WIDTH" = "EMPTY" ]; then
+      DAILY=$(echo "$FILTERED" | awk -F',' '{array[$2]++}
+      END{
+        for( i in array )
+          print i": "array[i];}' | sort)
+      echo "$DAILY"
+      NONE_I=$(echo "$FILTERED" | awk -F"," '$2 == ""  { print $0 }')
+                  lines "$NONE_I"
+                  echo "none: $LINES"
+      exit 0
+  elif [ "$WIDTH" = "NORMAL" ]; then
+      DAILY=$(echo "$FILTERED" | awk -F',' '{array[$2]++}
+      END{
+          for( i in array ){
+            printf(i": ");
+            if(int(array[i]/500) == 0){
+              printf("\n")
+            }
+            for(j=0; j<int(array[i]/500); j++){
+              printf("#");
+            }
+            printf("\n");
+          }
+        }' | sort)
+        echo "$DAILY"
+        exit 0
+  else
+      DAILY=$(echo "$FILTERED" | awk -F',' -v WIDTH_G="$WIDTH" '{array[$2]++}
+      END{
+        for( i in array ){
+           printf(i": ");
+           if(int(array[i]/WIDTH_G) == 0){
+           printf("\n")
+           }
+           for(j=0; j<int(array[i]/WIDTH_G); j++){
+              printf("#");
+           }
+           printf("\n");
+           }
+        }' | sort)
+        echo "$DAILY"
+        exit 0
+  fi
+}
+yearly_command(){
+  if [ "$WIDTH" = "EMPTY" ]; then
+      YEARLY=$(echo "$FILTERED" | awk -F',' '{array[substr($2,1,4)]++}
+      END{
+        for( i in array )
+        print i": "array[i];}' | sort)
+      echo "$YEARLY"
+      NONE_I=$(echo "$FILTERED" | awk -F"," '$2 == ""  { print $0 }')
+                        lines "$NONE_I"
+                        echo "none: $LINES"
+      exit 0
+  elif [ "$WIDTH" = "NORMAL" ]; then
+      YEARLY=$(echo "$FILTERED" | awk -F',' '{array[substr($2,1,4)]++}
+      END{
+          for( i in array ){
+            printf(i": ");
+            if(int(array[i]/100000) == 0){
+              printf("\n")
+            }
+            for(j=0; j<int(array[i]/100000); j++){
+              printf("#");
+            }
+            printf("\n");
+          }
+        }' | sort)
+        echo "$YEARLY"
+        exit 0
+  else
+      YEARLY=$(echo "$FILTERED" | awk -F',' -v WIDTH_G="$WIDTH" '{array[substr($2,1,4)]++}
+      END{
+        for( i in array ){
+           printf(i": ");
+           if(int(array[i]/WIDTH_G) == 0){
+           printf("\n")
+           }
+           for(j=0; j<int(array[i]/WIDTH_G); j++){
+              printf("#");
+           }
+           printf("\n");
+           }
+        }' | sort)
+        echo "$YEARLY"
+        exit 0
+  fi
+}
+monthly_command(){
+  if [ "$WIDTH" = "EMPTY" ]; then
+      MONTHLY=$(echo "$FILTERED" | awk -F',' '{array[substr($2,1,7)]++}
+      END{
+        for( i in array )
+          print i": "array[i];}' | sort)
+      echo "$MONTHLY"
+      NONE_I=$(echo "$FILTERED" | awk -F"," '$2 == ""  { print $0 }')
+                        lines "$NONE_I"
+                        echo "none: $LINES"
+      exit 0
+  elif [ "$WIDTH" = "NORMAL" ]; then
+      MONTHLY=$(echo "$FILTERED" | awk -F',' '{array[substr($2,1,7)]++}
+      END{
+          for( i in array ){
+            printf(i": ");
+            if(int(array[i]/10000) == 0){
+              printf("\n")
+            }
+            for(j=0; j<int(array[i]/10000); j++){
+              printf("#");
+            }
+            printf("\n");
+          }
+        }' | sort)
+        echo "$MONTHLY"
+        exit 0
+  else
+      MONTHLY=$(echo "$FILTERED" | awk -F',' -v WIDTH_G="$WIDTH" '{array[substr($2,1,7)]++}
+      END{
+        for( i in array ){
+           printf(i": ");
+           if(int(array[i]/WIDTH_G) == 0){
+           printf("\n")
+           }
+           for(j=0; j<int(array[i]/WIDTH_G); j++){
+              printf("#");
+           }
+           printf("\n");
+           }
+        }' | sort)
+        echo "$MONTHLY"
+        exit 0
+  fi
+}
+countries_command(){
+  if [ "$WIDTH" = "EMPTY" ]; then
+      COUNTRIES=$(echo "$FILTERED" | awk -F',' '{array[$8]++}
+      END{
+        for( i in array )
+          if(i != ""){
+          print i": "array[i];}
+          }' | sort)
+      echo "$COUNTRIES"
+      exit 0
+  elif [ "$WIDTH" = "NORMAL" ]; then
+      COUNTRIES=$(echo "$FILTERED" | awk -F',' '{array[$8]++}
+      END{
+          for( i in array ){
+            if(i != ""){
+              printf(i": ");
+              if(int(array[i]/100) == 0){
+                printf("\n")
+              }
+              for(j=0; j<int(array[i]/100); j++){
+                printf("#");
+              }
+              printf("\n");
+            }
+          }
+        }' | sort)
+        echo "$COUNTRIES"
+        exit 0
+  else
+      COUNTRIES=$(echo "$FILTERED" | awk -F',' -v WIDTH_G="$WIDTH" '{array[$8]++}
+      END{
+          for( i in array ){
+            if(i != ""){
+               printf(i": ");
+               if(int(array[i]/WIDTH_G) == 0){
+                 printf("\n")
+               }
+               for(j=0; j<int(array[i]/WIDTH_G); j++){
+                 printf("#");
+               }
+               printf("\n");
+            }
+          }
+              }' | sort)
+              echo "$COUNTRIES"
+              exit 0
+  fi
+}
+regions_command(){
+  if [ "$WIDTH" = "EMPTY" ]; then
+      REGIONS=$(echo "$FILTERED" | awk -F',' '{array[$5]++}
+      END{
+        for( i in array )
+          print i": "array[i];
+          }' | sort)
+      echo "$REGIONS"
+      NONE_I=$(echo "$FILTERED" | awk -F"," '$5 == ""  { print $0 }')
+                        lines "$NONE_I"
+                        echo "none: $LINES"
+      exit 0
+  elif [ "$WIDTH" = "NORMAL" ]; then
+      REGIONS=$(echo "$FILTERED" | awk -F',' '{array[$5]++}
+      END{
+          for( i in array ){
+              printf(i": ");
+              if(int(array[i]/10000) == 0){
+                printf("\n")
+              }
+              for(j=0; j<int(array[i]/10000); j++){
+                printf("#");
+              }
+              printf("\n");
+          }
+        }' | sort)
+        echo "$REGIONS"
+        exit 0
+  else
+      REGIONS=$(echo "$FILTERED" | awk -F',' -v WIDTH_G="$WIDTH" '{array[$5]++}
+      END{
+          for( i in array ){
+               printf(i": ");
+               if(int(array[i]/WIDTH_G) == 0){
+                 printf("\n")
+               }
+               for(j=0; j<int(array[i]/WIDTH_G); j++){
+                 printf("#");
+               }
+               printf("\n");
+          }
+        }' | sort)
+             echo "$REGIONS"
+             exit 0
+  fi
+}
+districts_command(){
+  if [ "$WIDTH" = "EMPTY" ]; then
+      DISTRICTS=$(echo "$FILTERED" | awk -F',' '{array[$6]++}
+      END{
+        for( i in array )
+          print i": "array[i];
+          }' | sort)
+      echo "$DISTRICTS"
+      NONE_I=$(echo "$FILTERED" | awk -F"," '$6 == ""  { print $0 }')
+                        lines "$NONE_I"
+                        echo "none: $LINES"
+      exit 0
+  elif [ "$WIDTH" = "NORMAL" ]; then
+      DISTRICTS=$(echo "$FILTERED" | awk -F',' '{array[$6]++}
+      END{
+          for( i in array ){
+              printf(i": ");
+              if(int(array[i]/1000) == 0){
+                printf("\n")
+              }
+              for(j=0; j<int(array[i]/1000); j++){
+                printf("#");
+              }
+              printf("\n");
+          }
+        }' | sort)
+        echo "$DISTRICTS"
+        exit 0
+  else
+      DISTRICTS=$(echo "$FILTERED" | awk -F',' -v WIDTH_G="$WIDTH" '{array[$6]++}
+      END{
+          for( i in array ){
+               printf(i": ");
+               if(int(array[i]/WIDTH_G) == 0){
+                 printf("\n")
+               }
+               for(j=0; j<int(array[i]/WIDTH_G); j++){
+                 printf("#");
+               }
+               printf("\n");
+          }
+        }' | sort)
+             echo "$DISTRICTS"
+             exit 0
+  fi
+}
+filter(){
+    FILTERED=$(echo "$LOG" | awk -F',' -v DATE_START="$DATE_A" -v DATE_END="$DATE_B" '{if($2 > DATE_START && $2 < DATE_END) {print }}')
+    FILTER_COUNTER=$((FILTER_COUNTER+1))
+    if [ "$GENDER_F" = "M" ]; then
+        FILTERED=$(echo "$FILTERED" | awk -F',' '$4 == "M" {print $0}')
+        FILTER_COUNTER=$((FILTER_COUNTER+1))
+    fi
+    if [ "$GENDER_F" = "Z" ]; then
+        FILTERED=$(echo "$FILTERED" | awk -F',' '$4 == "Z" {print $0}')
+        FILTER_COUNTER=$((FILTER_COUNTER+1))
+    fi
+}
+for var in "$@"
+  do
+    case "$var" in
+        *.csv)
+          LOG="$LOG$(cat "$var" | awk 'NR>1')"
+          ;;
+        *.csv.gz)
+          LOG="$LOG$(zcat "$var" | awk 'NR>1')"
+          ;;
+        *.csv.bz2)
+          LOG="$LOG$(bzcat "$var" | awk 'NR>1')"
+          ;;
+
+      esac
+
+done
+
+while [ "$#" -gt 0 ]; do
+      case "$1" in
+      -a)
+        DATE_A="$2"
+        filter
+        shift
+        shift
+        ;;
+      -b)
+        DATE_B="$2"
+        filter
+        shift
+        shift
+        ;;
+      -g)
+        if [ "$2" = "M" ]; then
+          GENDER_F="$2"
+          filter
+        elif [ "$2" = "Z" ]; then
+          GENDER_F="$2"
+          filter
+        else
+          echo "wrong gender filter parameter"
+          exit 1
+        fi
+        shift
+        shift
+        ;;
+      -s)
+        if ! [[ "$2" =~ ^[0-9]+$ ]]
+        then
+          WIDTH="NORMAL"
+          shift
+        else
+          WIDTH="$2"
+          shift
+          shift
+        fi
+        ;;
+      infected)
+        filter
+        infected_command
+        CMD_FLAG=$((CMD_FLAG+1))
+        shift
+        ;;
+      merge)
+        filter
+        merge_command
+        CMD_FLAG=$((CMD_FLAG+1))
+        shift
+        ;;
+      gender)
+        filter
+        gender_command
+        CMD_FLAG=$((CMD_FLAG+1))
+        shift
+        ;;
+      age)
+        filter
+        age_command
+        CMD_FLAG=$((CMD_FLAG+1))
+        shift
+        ;;
+      daily)
+        filter
+        daily_command
+        CMD_FLAG=$((CMD_FLAG+1))
+        shift
+        ;;
+      monthly)
+        filter
+        monthly_command
+        CMD_FLAG=$((CMD_FLAG+1))
+        shift
+        ;;
+      yearly)
+        filter
+        yearly_command
+        CMD_FLAG=$((CMD_FLAG+1))
+        shift
+        ;;
+      countries)
+        filter
+        countries_command
+        CMD_FLAG=$((CMD_FLAG+1))
+        shift
+        ;;
+      districts)
+        filter
+        districts_command
+        CMD_FLAG=$((CMD_FLAG+1))
+        shift
+        ;;
+      regions)
+        filter
+        regions_command
+        CMD_FLAG=$((CMD_FLAG+1))
+        shift
+        ;;
+      -h | -help)
+        help
+        exit 0
+        ;;
+      *.csv)
+        shift
+        ;;
+
+      *.csv.gz)
+        shift
+        ;;
+
+      *.csv.bz2)
+        shift
+        ;;
+      *)
+        echo "unknown command"
+        exit 1
+        ;;
+    esac
+done
+if [ "$FILTER_COUNTER" -eq 0 ]; then
+  echo "id,datum,vek,pohlavi,kraj_nuts_kod,okres_lau_kod,nakaza_v_zahranici,nakaza_zeme_csu_kod,reportovano_khs"
+  echo "$LOG"
+  exit 0
+fi
+if [ $CMD_FLAG -eq 0 ]; then
+  echo "id,datum,vek,pohlavi,kraj_nuts_kod,okres_lau_kod,nakaza_v_zahranici,nakaza_zeme_csu_kod,reportovano_khs"
+  echo "$FILTERED"
+fi
+
+
+exit 0

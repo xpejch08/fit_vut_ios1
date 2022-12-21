@@ -1,0 +1,561 @@
+#!/bin/sh
+export POSIXLY_CORRECT=yes
+
+print_help(){
+    echo HELP
+    echo corona - COVID-19 data analyzer
+    echo corona - [-h] [FILTERS] [COMMAND] [LOG [LOG2 [...]]]
+    echo
+    echo COMMANDS:
+    echo    infected - counts number of infected
+    echo    merge - unites multiple files into one "(original order will be maintained)"
+    echo    gender - return amount of infected for both genders
+    echo    age - returns data for various age groups
+    echo    daily - returns data for specific days
+    echo    monthly - returns data for specific months
+    echo    yearly - returns data for specifc years
+    echo    countries - returns data for various countries "(excluding Czech Republic)"
+
+}
+
+infected(){
+    echo  "$FILTERED" | awk   -v count=0 '{count++} END {print count}'
+    exit 0
+}
+
+gender(){
+    if [ $FILTER_WIDTH == "NOTHING" ];then
+        echo  "$FILTERED" | awk -F ',' -v count=0 '/,M,/ {count++} END {print "M: " count}'
+        echo  "$FILTERED" | awk -F ',' -v count=0 '/,Z,/ {count++} END {print "Z: " count}'
+    elif [ $FILTER_WIDTH == "CLASSIC" ]; then
+        echo "$FILTERED" | sort -t, -k4,4 | awk -F ',' -v count=1 -v  width=100000 '/,M,/ {count++}\
+        END {printf("M: ")}\
+        END {for (i=0; i < int(count/width); i++)\
+        printf("#") }\
+        END {printf("\n")}'
+
+        echo "$FILTERED" | sort -t, -k4,4 | awk -F ',' -v count=1 -v  width=100000 '/,Z,/ {count++}\
+        END {printf("Z: ")}\
+        END {for (i=0; i < int(count/width); i++)\
+        printf("#") }\
+        END {printf("\n")}'
+    else
+        echo "$FILTERED" | sort -t, -k4,4 | awk -F ',' -v count=0 -v width="$FILTER_WIDTH" -v max=0 '/,M,/ {count++}\
+        {if ($4> max){
+            max = $2
+        }}
+        END {printf("M: ")}\
+        END {for (i=0; i < int(count/width); i++)\
+        printf("#") }\
+        END {printf("\n")}'
+
+        echo "$FILTERED" | sort -t, -k4,4 | awk -F ',' -v count=0 -v  width="$FILTER_WIDTH" -v max=0 '/,Z,/ {count++}\
+        END {printf("Z: ")}\
+        END {for (i=0; i < int(count/width); i++)\
+        printf("#") }\
+        END {printf("\n")}'
+
+    fi
+}
+
+FILES=""
+FILTER_GENDER=""
+FILTER_DATE_A="0000-00-00"
+FILTER_DATE_B="9999-00-00"
+FILTER_WIDTH="NOTHING"
+COMMAND="NOTHING"
+RE="^[0-9]+$"
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+
+    infected | merge | gender | age | daily | monthly | yearly | countries | districts | regions)
+        COMMAND="$1"
+        shift
+        ;;
+
+    -h)
+        print_help
+        exit 0
+        ;;
+
+    -s)
+        if ! [[ "$2" =~ ^[0-9]+$ ]]
+        then
+            FILTER_WIDTH="CLASSIC"
+            shift
+        else
+            FILTER_WIDTH="$2"
+            shift
+            shift
+        fi
+        ;;
+
+    -g)
+        if [ "$2" == "Z" ]; then
+            FILTER_GENDER="$2"
+        fi
+        if [ "$2" == "M" ]; then
+            FILTER_GENDER="$2"
+        fi
+        shift
+        shift
+        ;;
+
+    -a)
+        FILTER_DATE_A="$2 $FILTER_DATE"
+        shift
+        shift
+        ;;
+
+    -b)
+        FILTER_DATE_B="$2"
+        shift
+        shift
+        ;;
+
+    *)
+        FILES="$1 $FILES"
+        shift
+        ;;
+
+    esac
+done
+#echo "$COMMAND"
+#---------------------------------------------------------FILTERING-----------------------------------------------------------
+READ_FILES=$(cat $FILES)
+
+#FILTERING DATE
+FILTERED=$(echo "$READ_FILES" | awk -F ',' -v dateA="$FILTER_DATE_A" -v dateB="$FILTER_DATE_B" '{if($2 > dateA && $2< dateB) {print }}')
+
+#FILTERING GENDER
+if [ "$FILTER_GENDER" == "M" ]; then
+    FILTERED=$(echo "$FILTERED"| awk -F "," '/,M,/ {print}')
+fi
+if [ "$FILTER_GENDER" == "Z" ]; then
+    FILTERED=$(echo "$FILTERED"| awk -F "," '/,Z,/ {print}')
+fi
+#-----------------------------------------------------CHECKING COMMANDS-------------------------------------------------------
+#no need to check commands if no were given
+if [ $COMMAND == "NOTHING" ]; then
+    echo "$FILTERED"
+    exit 0
+fi
+if [ $COMMAND == "merge" ]; then
+    echo "id,datum,vek,pohlavi,kraj_nuts_kod,okres_lau_kod,nakaza_v_zahranici,nakaza_zeme_csu_kod,reportovano_khs
+$FILTERED"
+    exit 0
+fi
+
+#INFECTED
+if [ $COMMAND == "infected" ]; then
+    infected
+    exit 0
+fi
+
+#GENDER
+if [ $COMMAND == "gender" ]; then
+    gender
+    exit 0
+fi
+
+#DAILY
+#-s DONE
+#-s param TODO
+#none TODO
+if [ $COMMAND == "daily" ]; then
+     if [ $FILTER_WIDTH == "CLASSIC" ]; then
+        OUT=$(echo "$FILTERED" | awk -F ',' '{a[$2]++}\
+        END{\
+            for(i in a){\
+                printf(i ": ");\
+                if(int(a[i]/500)== 0){\
+                    printf("\n")
+                }\
+                for(j=0; j < int(a[i]/500); j++){\
+                    printf("#");\
+                    if(j+1 == int(a[i]/500)){\
+                        printf("\n")\
+                    }\
+                }\
+            }\
+        }' | sort )
+        echo "$OUT"
+        exit 0
+    fi
+    OUT=$(echo "$FILTERED" | awk -F ',' '{a[$2]++}\
+    END{for (i in a){if(i =="")print("None: "a[i]);else{print i": "a[i]}}}' | sort )
+    echo "$OUT"
+    exit 0
+fi
+
+#YEARLY
+#none TODO
+if [ $COMMAND == "yearly" ]; then
+#NO PARAM -S
+     if [ $FILTER_WIDTH == "NOTHING" ]; then
+        OUT=$(echo "$FILTERED" | awk -F ',' '{a[substr($2,1,4)]++}END{for (i in a)print i": "a[i];}' | sort )
+        echo "$OUT"
+        exit 0
+    fi
+
+#PARAM -S without number
+    if [ $FILTER_WIDTH == "CLASSIC" ]; then
+        OUT=$(echo "$FILTERED" | awk -F ',' '{a[substr($2,1,4)]++}\
+        END{\
+            for(i in a){\
+                printf(i ": ");\
+                if(int(a[i]/100000)== 0){\
+                    printf("\n")
+                }\
+                for(j=0; j < int(a[i]/100000); j++){\
+                    printf("#");\
+                    if(j+1 == int(a[i]/100000)){\
+                        printf("\n")\
+                    }\
+                }\
+            }\
+        }' | sort )
+        echo "$OUT"
+        exit 0
+    fi
+#PARAM -S with number
+    OUT=$(echo "$FILTERED" | awk -F ',' -v param=$FILTER_WIDTH 'BEGIN{max=0}{a[substr($2,1,4)]++}\
+        {if(a[substr($2,1,4)]>max){max=a[substr($2,1,4)]}}
+        END{number=int(max/param);\
+            for(i in a){\
+                printf(i ": ");\
+                if (int(a[i]/number)== 0){\
+                    printf("\n")
+                }\
+                    for(j=0; j < int(a[i]/number); j++){\
+                    printf("#");\
+                    if(j+1 == int(a[i]/number)){\
+                        printf("\n")\
+                    }\
+                }\
+            }\
+        }' | sort )
+    echo "$OUT"
+    exit 0
+fi
+
+
+
+###############MONTHLY
+if [ $COMMAND == "monthly" ]; then
+#NO PARAM -S
+    if [ $FILTER_WIDTH == "NOTHING" ]; then
+        OUT=$(echo "$FILTERED" | awk -F ',' '{a[substr($2,1,7)]++}END{for (i in a)print i": "a[i];}' | sort )
+        echo "$OUT"
+        exit 0
+    fi
+#PARAM -S without number
+     if [ $FILTER_WIDTH == "CLASSIC" ]; then
+        OUT=$(echo "$FILTERED" | awk -F ',' '{a[substr($2,1,7)]++}\
+        END{\
+            for(i in a){\
+                printf(i ": ");\
+                if(int(a[i]/10000)== 0){\
+                    printf("\n")
+                }\
+                for(j=0; j < int(a[i]/10000); j++){\
+                    printf("#");\
+                    if(j+1 == int(a[i]/10000)){\
+                        printf("\n")\
+                    }\
+                }\
+            }\
+        }' | sort )
+        echo "$OUT"
+        exit 0
+    fi
+#PARAM -S with number
+     OUT=$(echo "$FILTERED" | awk -F ',' -v param=$FILTER_WIDTH 'BEGIN{max=0}{a[substr($2,1,7)]++}\
+        {if(a[substr($2,1,7)]>max){max=a[substr($2,1,7)]}}
+        END{number=int(max/param);\
+            for(i in a){\
+                printf(i ": ");\
+                if (int(a[i]/number)== 0){\
+                    printf("\n")
+                }\
+                    for(j=0; j < int(a[i]/number); j++){\
+                    printf("#");\
+                    if(j+1 == int(a[i]/number)){\
+                        printf("\n")\
+                    }\
+                }\
+            }\
+        }' | sort )
+    echo "$OUT"
+    exit 0
+fi
+
+
+#AGE
+#None DONE
+#-s param TODO
+#-s TODO
+if [ $COMMAND == "age" ]; then
+    echo "$FILTERED" | awk -F ',' 'BEGIN{
+    sum5=0
+    sum15=0
+    sum25=0
+    sum35=0
+    sum45=0
+    sum55=0
+    sum65=0
+    sum75=0
+    sum85=0
+    sum95=0
+    sum105=0
+    sumMore=0
+    None=0
+    }{
+    if($3 == ""){
+        None++
+    }
+    else if ($3 < 6){
+        sum5++
+    }
+    else if($3 > 5 && $3 < 16){
+    sum15++
+    }
+    else if($3 > 15 && $3 < 26){
+    sum25++
+    }
+    else if($3 > 25 && $3 < 36){
+    sum35++
+    }
+    else if($3 > 35 && $3 < 46){
+    sum45++
+    }
+    else if($3 > 45 && $3 < 56){
+    sum55++
+    }
+    else if($3 > 55 && $3 < 66){
+    sum65++
+    }
+    else if($3 > 65 && $3 < 76){
+    sum75++
+    }
+    else if($3 > 75 && $3 < 86){
+    sum85++
+    }
+    else if($3 > 85 && $3 < 96){
+    sum95++
+    }
+    else if($3 > 95 && $3 < 106){
+    sum105++
+    }
+    else if ($3 > 105){
+    sumMore++
+    }
+    }
+    END{
+    print(NR);\
+    printf("0-5   : %d\n",sum5 )
+    printf("6-15  : %d\n",sum15 )
+    printf("16-25 : %d\n",sum25 )
+    printf("26-35 : %d\n",sum35 )
+    printf("36-45 : %d\n",sum45 )
+    printf("46-55 : %d\n",sum55 )
+    printf("56-65 : %d\n",sum65 )
+    printf("66-75 : %d\n",sum75 )
+    printf("76-85 : %d\n",sum85 )
+    printf("86-95 : %d\n",sum95 )
+    printf("96-105: %d\n",sum105 )
+    printf(">105  : %d\n",sumMore )
+    }
+    END{if (None>1){
+    printf("None  : %d\n",None )
+    }}'
+    exit 0
+fi
+
+
+#DISTRICTS
+#None DONE
+#-s param TODO
+#-s DONE
+if [ $COMMAND = "districts" ];then
+#NO PARAM -S
+    if [ $FILTER_WIDTH == "NOTHING" ]; then
+        OUT=$(echo "$FILTERED" | awk -F ',' '{a[$6]++}\
+        END{for (i in a){if(i =="")print("None: "a[i]);else{print i": "a[i]}}}' | sort )
+        echo "$OUT"
+    exit 0
+    fi
+# PARAM -s without number
+    if [ $FILTER_WIDTH == "CLASSIC" ]; then
+        OUT=$(echo "$FILTERED" | awk -F ',' 'BEGIN{None=0}{a[$6]++}\
+        END{\
+            for(i in a){\
+                printf(i ": ");\
+                if(int(a[i]/1000)== 0){\
+                    printf("\n")
+                }\
+                for(j=0; j < int(a[i]/1000); j++){\
+                    printf("#");\
+                    if(j+1 == int(a[i]/1000)){\
+                        printf("\n")\
+                    }\
+                }\
+            }\
+        }' | sort )
+        echo "$OUT"
+        exit 0
+    fi
+OUT=$(echo "$FILTERED" | awk -F ',' -v param=$FILTER_WIDTH 'BEGIN{max=0}{a[$6]++}\
+        {if(a[$6]>max){max=a[$6]}}
+        END{number=int(max/param);\
+            for(i in a){\
+                printf(i ": ");\
+                if (int(a[i]/number)== 0){\
+                    printf("\n")
+                }\
+                    for(j=0; j < int(a[i]/number); j++){\
+                    printf("#");\
+                    if(j+1 == int(a[i]/number)){\
+                        printf("\n")\
+                    }\
+                }\
+            }\
+        }' | sort )
+    echo "$OUT"
+    exit 0
+fi
+
+#REGIONS
+#-s DONE
+#none DONE
+#-s param TODO
+
+
+if [ $COMMAND = "regions" ];then
+    if [ $FILTER_WIDTH == "NOTHING" ]; then
+        OUT=$(echo "$FILTERED" | awk -F ',' '{a[$5]++}\
+        END{for (i in a){if(i =="")print("None: "a[i]);else{print i": "a[i]}}}' | sort )
+        echo "$OUT"
+        exit 0
+
+    fi
+    if [ $FILTER_WIDTH == "CLASSIC" ]; then
+        OUT=$(echo "$FILTERED" | awk -F ',' 'BEGIN{None=0}{a[$5]++}\
+        END{\
+            for(i in a){\
+                if(i == ""){\
+                    None=a[i];\
+                    printf("None:  ");\
+                    if(int(a[i]/10000)== 0){\
+                        printf("\n")
+                    }\
+                    for(j=0; j < int(a[i]/10000); j++){\
+                        printf("#");\
+                        if(j+1 == int(a[i]/10000)){\
+                            printf("\n")\
+                        }\
+                    }\
+                }\
+                if(i !=""){\
+                    printf(i ": ");\
+                    if(int(a[i]/10000)== 0){\
+                        printf("\n")
+                    }\
+                    for(j=0; j < int(a[i]/10000); j++){\
+                        printf("#");\
+                        if(j+1 == int(a[i]/10000)){\
+                            printf("\n")\
+                        }\
+                    }\
+                }\
+            }\
+        }' | sort )
+        echo "$OUT"
+        exit 0
+    fi
+
+##-s param
+#PARAM -S with number
+     OUT=$(echo "$FILTERED" | awk -F ',' -v param=$FILTER_WIDTH 'BEGIN{max=0}{a[$5]++}\
+        {if(a[$5]>max){max=a[$5]}}
+        END{number=int(max/param);\
+            for(i in a){\
+                if(i == ""){\
+                    None=a[i];\
+                    printf("None:  ");\
+                    if(int(a[i]/number)== 0){\
+                        printf("\n")
+                    }\
+                    for(j=0; j < int(a[i]/number); j++){\
+                        printf("#");\
+                        if(j+1 == int(a[i]/number)){\
+                            printf("\n")\
+                        }\
+                    }\
+                }\
+                if(i !=""){\
+                    printf(i ": ");\
+                    if(int(a[i]/number)== 0){\
+                        printf("\n")
+                    }\
+                    for(j=0; j < int(a[i]/number); j++){\
+                        printf("#");\
+                        if(j+1 == int(a[i]/number)){\
+                            printf("\n")\
+                        }\
+                    }\
+                }\
+            }\
+        }' | sort )
+        echo "$OUT"
+        exit 0
+fi
+
+
+#COUNTRIES
+#-s DONE
+#none DONE
+# -s param TODO
+if [ $COMMAND = "countries" ];then
+    if [ $FILTER_WIDTH == "CLASSIC" ]; then
+        OUT=$(echo "$FILTERED" | awk -F ',' '{a[$8]++}\
+        END{\
+            for(i in a){\
+                if(i != ""){
+                    printf(i ": ");\
+                    if(int(a[i]/100)== 0){\
+                        printf("\n")
+                    }\
+                    for(j=0; j < int(a[i]/100); j++){\
+                        printf("#");\
+                        if(j+1 == int(a[i]/100)){\
+                            printf("\n")\
+                        }\
+                    }\
+                }}\
+        }' | sort )
+        echo "$OUT"
+        exit 0
+    fi 
+    OUT=$(echo "$FILTERED" | awk -F ',' '{a[$8]++}\
+    END{for (i in a){if(i =="")None++;else{print i": "a[i]}}}' | sort )
+    echo "$OUT"
+    exit 0
+fi
+
+
+#echo "$FILTERED"
+
+© 2022 GitHub, Inc.
+Terms
+Privacy
+Security
+Status
+Docs
+Contact GitHub
+Pricing
+API
+Training
+Blog
+About
